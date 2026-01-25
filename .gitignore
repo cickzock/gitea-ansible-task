@@ -1,0 +1,11 @@
+ansible/.ssh
+*.retry
+.DS_Store
+*.swp
+*.swo
+*~
+
+# QEMU виртуальные машины
+qemu-vms/
+*.qcow2
+*.iso

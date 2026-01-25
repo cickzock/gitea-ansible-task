@@ -1,0 +1,98 @@
+---
+- name: Deploy Gitea in Docker
+  hosts: gitea_servers
+  become: yes
+  vars:
+    gitea_version: "latest"
+    gitea_http_port: "80"
+    # Host port for Gitea SSH. Keep 22 for system SSH, use 2222 for Gitea by default.
+    # Порт на хосте для SSH Gitea. 22 занят системным SSH, поэтому по умолчанию 2222.
+    gitea_ssh_port: "2222"
+    gitea_data_dir: "/opt/gitea"
+    
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - sudo
+        state: present
+        
+    - name: Create directory for Docker GPG key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+        
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+        
+    - name: Add Docker repository
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+        
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+        
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+        
+    - name: Create Gitea data directory
+      file:
+        path: "{{ gitea_data_dir }}"
+        state: directory
+        mode: '0755'
+        
+    - name: Stop existing Gitea container if running
+      shell: docker stop gitea || true
+      
+    - name: Remove existing Gitea container if exists
+      shell: docker rm gitea || true
+      
+    - name: Run Gitea container
+      shell: |
+        docker run -d \
+          --name gitea \
+          --restart always \
+          -p {{ gitea_http_port }}:3000 \
+          -p {{ gitea_ssh_port }}:22 \
+          -v {{ gitea_data_dir }}:/data \
+          gitea/gitea:{{ gitea_version }}
+      
+    - name: Wait for Gitea to start
+      wait_for:
+        port: "{{ gitea_http_port }}"
+        delay: 5
+        timeout: 60
+        
+    - name: Display success message
+      debug:
+        msg: "Gitea успешно развернут! Web-интерфейс доступен на http://{{ ansible_host }}:{{ gitea_http_port }}"

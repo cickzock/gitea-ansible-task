@@ -1,0 +1,12 @@
+all:
+  children:
+    gitea_servers:
+      hosts:
+        gitea-vm:
+          ansible_host: 192.168.35.35
+          ansible_port: 2222
+          ansible_user: debian
+          ansible_ssh_private_key_file: /ansible/.ssh/deb_gitea
+          ansible_become: true
+          ansible_become_method: sudo
+          ansible_become_flags: -n

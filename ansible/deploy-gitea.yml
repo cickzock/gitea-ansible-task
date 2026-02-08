@@ -5,9 +5,7 @@
   vars:
     gitea_version: "latest"
     gitea_http_port: "80"
-    # Host port for Gitea SSH. Keep 22 for system SSH, use 2222 for Gitea by default.
-    # Порт на хосте для SSH Gitea. 22 занят системным SSH, поэтому по умолчанию 2222.
-    gitea_ssh_port: "2222"
+    gitea_ssh_port: "22"
     gitea_data_dir: "/opt/gitea"
     
   tasks:
@@ -84,14 +82,41 @@
           --restart always \
           -p {{ gitea_http_port }}:3000 \
           -p {{ gitea_ssh_port }}:22 \
+          -e USER_UID=1000 \
+          -e USER_GID=1000 \
+          -e SSH_PORT=22 \
+          -e SSH_LISTEN_PORT=22 \
           -v {{ gitea_data_dir }}:/data \
           gitea/gitea:{{ gitea_version }}
+      register: gitea_container
       
-    - name: Wait for Gitea to start
+    - name: Check Gitea container is running
+      shell: docker ps --filter name=gitea --format "{{ '{{' }}.Status{{ '}}' }}"
+      register: container_status
+      until: container_status.stdout is search("Up")
+      retries: 10
+      delay: 3
+      ignore_errors: yes
+      
+    - name: Wait for Gitea HTTP port
       wait_for:
+        host: "{{ ansible_host }}"
         port: "{{ gitea_http_port }}"
-        delay: 5
-        timeout: 60
+        delay: 10
+        timeout: 120
+      register: port_check
+      failed_when: false
+      
+    - name: Show Gitea container logs if port check failed
+      shell: docker logs --tail 50 gitea
+      register: gitea_logs
+      when: port_check.failed | default(false)
+      failed_when: false
+      
+    - name: Display container logs
+      debug:
+        var: gitea_logs.stdout_lines
+      when: port_check.failed | default(false)
         
     - name: Display success message
       debug:

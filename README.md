@@ -31,13 +31,26 @@ Ansible playbook который:
 
 #### Шаг 1: Настройка inventory
 
-Откройте файл `ansible/inventory.ini` и раскомментируйте строку для доступа к виртуальной машине:
-1. **ansible_host - укажите ip адрес сервера**
-2. **ansible_ssh_private_key_file - укажите путь к приватному ssh ключу**
+Откройте файл `ansible/inventory.yml` и измените настройки на свои
+1. **ansible_host - укажите ip адрес сервера***
+2. **ansible_port - укажите порт для ssh подключения**
+3. **ansible_user - укажите пользователя для ssh подключения**
+4. **ansible_ssh_private_key_file - укажите путь к приватному ssh ключу**
 
-```ini
-[gitea_servers]
-gitea-vm ansible_host=192.168.35.35 ansible_user=debian ansible_ssh_private_key_file=/ansible/.ssh/deb_gitea ansible_become=true ansible_become_method=sudo ansible_become_flags=-n
+```yml
+all:
+  children:
+    gitea_servers:
+      hosts:
+        gitea-vm:
+          ansible_host: 192.168.35.35
+          ansible_port: 2222
+          ansible_user: debian
+          ansible_ssh_private_key_file: /ansible/.ssh/deb_gitea
+          ansible_become: true
+          ansible_become_method: sudo
+          ansible_become_flags: -n
+
 ```
 Ключ `deb_gitea` должен лежать в `ansible/.ssh/` на хостовой машине и пробрасываться в контейнер через `-v $(pwd)/ansible:/ansible`.
 
@@ -68,7 +81,7 @@ docker build -t ansible-debian:local .
 docker run -it --rm \
   -v $(pwd)/ansible:/ansible \
   ansible-debian:local \
-  ansible-playbook deploy-gitea.yml
+  ansible-playbook -i inventory.yml deploy-gitea.yml
 ```
 
 ### Шаг 3: Ожидание завершения
@@ -245,5 +258,16 @@ sudo docker start gitea
 - Доступ в интернет
 
 ## Автор
-Кармазин Вячеслав
-Проект создан в качестве тестового задания для позиции DevOps инженера.
+
+Viacheslav Karmazin проект создан в качестве тестового задания для позиции DevOps инженера.
+
+**Полезные ресурсы:**
+
+- [Документация Ansible](https://docs.ansible.com/)
+- [Документация Docker](https://docs.docker.com/)
+- [Документация Gitea](https://docs.gitea.io/)
+- [Официальный сайт Debian](https://www.debian.org/)
+
+---
+
+> **Лицензия:** Этот проект предоставляется "как есть" для образовательных целей.
